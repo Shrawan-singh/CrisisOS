@@ -1,10 +1,17 @@
 import json
 import asyncio
+import logging
 from datetime import datetime
 from typing import Dict
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage, HumanMessage
+from rapidfuzz import fuzz
+from db import SessionLocal
+from models import Incident
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -13,14 +20,77 @@ llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
 # CACHE: { "dadar_fire_14": { "count": 1, ... } }
 INCIDENT_CACHE: Dict[str, dict] = {}
 
+
+def upsert_incident(event_id: str, data: dict, count: int, status: str, confidence: int) -> None:
+    """Persist or update an incident in SQLite."""
+    logger.info(f"Upserting incident {event_id}: status={status}, confidence={confidence}, count={count}")
+    session = SessionLocal()
+    try:
+        incident = session.get(Incident, event_id)
+        if incident:
+            incident.source_count = count
+            incident.status = status
+            incident.reliability_message = f"{status} - {data.get('summary','')}"
+            incident.confidence = confidence
+        else:
+            incident = Incident(
+                event_id=event_id,
+                disaster_type=data.get("category"),
+                location=data.get("location"),
+                urgency=data.get("urgency"),
+                summary=data.get("summary"),
+                status=status,
+                source_count=count,
+                reliability_message=f"{status} - {data.get('summary','')}",
+                confidence=confidence,
+                sample_headlines=data.get("summary"),
+                source_urls="Live Feed Analysis",
+                latitude=data.get("latitude"),
+                longitude=data.get("longitude"),
+                disaster_probabilities=None,
+                images_urls=None,
+            )
+            session.add(incident)
+        session.commit()
+    finally:
+        session.close()
+
 def get_dedupe_key(location, category):
     loc_slug = location.lower().split(" ")[0] 
     cat_slug = category.lower()
     hour = datetime.now().hour
     return f"{loc_slug}_{cat_slug}_{hour}"
 
+
+def compute_confidence(count: int, urgency: str) -> int:
+    base = 30
+    if urgency.lower() == "high":
+        base += 20
+    elif urgency.lower() == "medium":
+        base += 10
+    return min(95, base + count * 10)
+
+
+def find_duplicate(session, data: dict, threshold: int = 82):
+    """Return existing incident event_id if similar enough."""
+    logger.debug(f"Checking for duplicates: location={data.get('location')}")
+    candidates = session.query(Incident).filter(Incident.location.ilike(f"%{data['location']}%"))
+    text = f"{data.get('location','')} {data.get('summary','')}"
+    best_id = None
+    best_score = 0
+    for inc in candidates.all():
+        other = f"{inc.location} {inc.summary}"
+        score = fuzz.token_set_ratio(text, other)
+        if score > best_score:
+            best_score = score
+            best_id = inc.event_id
+    if best_score >= threshold:
+        logger.info(f"Duplicate found: {best_id} (fuzzy score: {best_score})")
+    return best_id if best_score >= threshold else None
+
 async def run_disaster_agent(post_obj):
     raw_text = post_obj['text']
+    logger.info(f"Processing incident: {raw_text[:60]}...")
     
     # 1. PARSE UNSTRUCTURED TEXT
     yield f'data: {{"type": "log", "content": "[AI] ANALYZING: {raw_text[:50]}..."}}\n\n'
@@ -58,19 +128,28 @@ async def run_disaster_agent(post_obj):
     # 2. DEDUPLICATION CHECK
     key = get_dedupe_key(data['location'], data['category'])
     
-    if key in INCIDENT_CACHE:
-        # EXISTING -> UPDATE COUNTER
-        INCIDENT_CACHE[key]['count'] += 1
-        count = INCIDENT_CACHE[key]['count']
+    session = SessionLocal()
+    dup_id = find_duplicate(session, data)
+    session.close()
+
+    if dup_id or key in INCIDENT_CACHE:
+        event_id = dup_id or key
+        INCIDENT_CACHE[event_id] = INCIDENT_CACHE.get(event_id, {'count': 0, 'data': data, 'status': "UNVERIFIED"})
+        INCIDENT_CACHE[event_id]['count'] += 1
+        count = INCIDENT_CACHE[event_id]['count']
+        confidence = compute_confidence(count, data.get('urgency', 'Low'))
+        upsert_incident(event_id, data, count, INCIDENT_CACHE[event_id].get("status", "UNVERIFIED"), confidence)
         
-        yield f'data: {{"type": "log", "content": "[MERGE] Duplicate report (Count: {count})"}}\n\n'
+        yield f'data: {{"type": "log", "content": "[MERGE] Duplicate/Similar report (Count: {count})"}}\n\n'
         
-        update_payload = {"type": "card_update", "id": key, "field": "source_count", "value": count}
+        update_payload = {"type": "card_update", "id": event_id, "field": "source_count", "value": count}
         yield f'data: {json.dumps(update_payload)}\n\n'
         return
 
     # 3. NEW -> SHOW IMMEDIATELY (Async UI)
-    INCIDENT_CACHE[key] = {'count': 1, 'data': data}
+    confidence = compute_confidence(1, data.get('urgency', 'Low'))
+    INCIDENT_CACHE[key] = {'count': 1, 'data': data, 'status': "UNVERIFIED"}
+    upsert_incident(key, data, 1, "UNVERIFIED", confidence)
     
     initial_card = {
         "type": "incident_card",
@@ -91,7 +170,11 @@ async def run_disaster_agent(post_obj):
     await asyncio.sleep(1) # Simulated verification delay
     
     # Logic: High Urgency = "Developing", otherwise "Verified" for demo
-    final_status = "VERIFIED"
+    # Simple verification heuristic based on source count & urgency
+    final_status = "VERIFIED" if INCIDENT_CACHE[key]['count'] >= 3 else "HIGH_POSSIBILITY" if INCIDENT_CACHE[key]['count'] >= 2 else "UNVERIFIED"
+    confidence = compute_confidence(INCIDENT_CACHE[key]['count'], data.get('urgency', 'Low'))
+    INCIDENT_CACHE[key]['status'] = final_status
+    upsert_incident(key, data, INCIDENT_CACHE[key]['count'], final_status, confidence)
     
     yield f'data: {{"type": "log", "content": "[OK] CONFIRMED: Validated against News."}}\n\n'
     

@@ -6,3 +6,5 @@ langchain-community
 langchain-core
 tavily-python
 requests
+sqlalchemy
+rapidfuzz
