@@ -8,3 +8,9 @@ tavily-python
 requests
 sqlalchemy
 rapidfuzz
+# CrisisOS 2.0 dependencies
+aiohttp
+aiofiles
+feedparser
+google-generativeai
+python-multipart

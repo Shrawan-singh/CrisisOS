@@ -6,6 +6,8 @@ import SearchNews from './pages/SearchNews';
 import LiveIncidents from './pages/LiveIncidents';
 import Analytics from './pages/Analytics';
 import IncidentDetail from './pages/IncidentDetail';
+import CitizenCam from './pages/CitizenCam';
+import MapView from './pages/MapView';
 
 export default function App() {
   return (
@@ -19,6 +21,8 @@ export default function App() {
             <Route path="/search" element={<SearchNews />} />
             <Route path="/incidents" element={<LiveIncidents />} />
             <Route path="/analytics" element={<Analytics />} />
+            <Route path="/map" element={<MapView />} />
+            <Route path="/citizen-cam" element={<CitizenCam />} />
             <Route path="/incident/:id" element={<IncidentDetail />} />
           </Routes>
         </main>

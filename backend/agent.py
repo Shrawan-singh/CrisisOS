@@ -1,8 +1,10 @@
 import json
 import asyncio
 import logging
+import os
+from pathlib import Path
 from datetime import datetime
-from typing import Dict
+from typing import Dict, List
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -10,10 +12,16 @@ from rapidfuzz import fuzz
 from db import SessionLocal
 from models import Incident
 
+# CrisisOS 2.0 imports
+from trust_pyramid import calculate_trust_score, get_verification_status, classify_source
+from clustering import geocode_location, ClusterableEvent, event_clusterer, should_merge_events
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-load_dotenv()
+# Load .env from the backend directory
+env_path = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
 
@@ -21,17 +29,31 @@ llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
 INCIDENT_CACHE: Dict[str, dict] = {}
 
 
-def upsert_incident(event_id: str, data: dict, count: int, status: str, confidence: int) -> None:
-    """Persist or update an incident in SQLite."""
+def upsert_incident(event_id: str, data: dict, count: int, status: str, confidence: int, source_urls: List[str] = None) -> None:
+    """Persist or update an incident in SQLite with CrisisOS 2.0 fields."""
     logger.info(f"Upserting incident {event_id}: status={status}, confidence={confidence}, count={count}")
     session = SessionLocal()
     try:
         incident = session.get(Incident, event_id)
+        
+        # Calculate Trust Pyramid score
+        urls = source_urls or []
+        trust_data = calculate_trust_score(urls)
+        
+        # Get coordinates
+        lat, lon = geocode_location(data.get("location", ""))
+        
         if incident:
             incident.source_count = count
             incident.status = status
             incident.reliability_message = f"{status} - {data.get('summary','')}"
-            incident.confidence = confidence
+            incident.confidence = trust_data["trust_score"]  # Use Trust Pyramid score
+            incident.trust_score = trust_data["trust_score"]
+            incident.weighted_sources = trust_data["weighted_sources"]
+            incident.source_breakdown = trust_data["source_breakdown"]
+            incident.highest_trust_source = trust_data["highest_trust_source"]
+            if urls:
+                incident.source_urls = "|".join(urls)
         else:
             incident = Incident(
                 event_id=event_id,
@@ -42,13 +64,21 @@ def upsert_incident(event_id: str, data: dict, count: int, status: str, confiden
                 status=status,
                 source_count=count,
                 reliability_message=f"{status} - {data.get('summary','')}",
-                confidence=confidence,
+                confidence=trust_data["trust_score"],
                 sample_headlines=data.get("summary"),
-                source_urls="Live Feed Analysis",
-                latitude=data.get("latitude"),
-                longitude=data.get("longitude"),
+                source_urls="|".join(urls) if urls else "Live Feed Analysis",
+                latitude=data.get("latitude") or (str(lat) if lat else None),
+                longitude=data.get("longitude") or (str(lon) if lon else None),
                 disaster_probabilities=None,
                 images_urls=None,
+                # CrisisOS 2.0 fields
+                source_type=trust_data["highest_trust_source"] or "unknown",
+                trust_score=trust_data["trust_score"],
+                weighted_sources=trust_data["weighted_sources"],
+                source_breakdown=trust_data["source_breakdown"],
+                highest_trust_source=trust_data["highest_trust_source"],
+                lat_float=lat,
+                lon_float=lon,
             )
             session.add(incident)
         session.commit()

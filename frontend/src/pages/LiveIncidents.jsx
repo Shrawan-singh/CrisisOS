@@ -5,12 +5,12 @@ import { Link } from 'react-router-dom';
 
 const API_BASE = 'http://localhost:8000';
 
-// Sample fallback data matching mockups
+// Sample fallback data - India/Maharashtra focused
 const sampleIncidents = [
-  { event_id: 'sample1', disaster_type: 'Hurricane', location: 'Florida', confidence_score: 89, status: 'VERIFIED', timestamp: new Date().toISOString(), image: 'https://images.unsplash.com/photo-1509803874385-db7c23652552?w=400' },
-  { event_id: 'sample2', disaster_type: 'Flood', location: 'Indonesia', confidence_score: 72, status: 'HIGH_POSSIBILITY', timestamp: new Date().toISOString(), image: 'https://images.unsplash.com/photo-1547683905-f686c993aae5?w=400' },
-  { event_id: 'sample3', disaster_type: 'Forest Fire', location: 'Brazil', confidence_score: 58, status: 'UNVERIFIED', timestamp: new Date().toISOString(), image: 'https://images.unsplash.com/photo-1493246507139-91e8fad9978e?w=400' },
-  { event_id: 'sample4', disaster_type: 'Tornado', location: 'Texas', confidence_score: 95, status: 'VERIFIED', timestamp: new Date().toISOString(), image: 'https://images.unsplash.com/photo-1527482937786-6f0f26a57ead?w=400' },
+  { event_id: 'sample1', disaster_type: 'Heavy Rainfall', location: 'Mumbai, Maharashtra', confidence_score: 89, status: 'VERIFIED', timestamp: new Date().toISOString(), image: 'https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?w=400' },
+  { event_id: 'sample2', disaster_type: 'Flood Warning', location: 'Kolhapur, Maharashtra', confidence_score: 72, status: 'HIGH_POSSIBILITY', timestamp: new Date().toISOString(), image: 'https://images.unsplash.com/photo-1547683905-f686c993aae5?w=400' },
+  { event_id: 'sample3', disaster_type: 'Cyclone Alert', location: 'Ratnagiri, Maharashtra', confidence_score: 85, status: 'VERIFIED', timestamp: new Date().toISOString(), image: 'https://images.unsplash.com/photo-1527482937786-6f0f26a57ead?w=400' },
+  { event_id: 'sample4', disaster_type: 'Landslide Warning', location: 'Raigad, Maharashtra', confidence_score: 45, status: 'UNVERIFIED', timestamp: new Date().toISOString(), image: 'https://images.unsplash.com/photo-1493246507139-91e8fad9978e?w=400' },
 ];
 
 const container = {
@@ -65,7 +65,7 @@ export default function LiveIncidents() {
     }
     return (
       <span className="px-3 py-1 bg-red-500/20 text-red-400 text-xs rounded-full font-semibold flex items-center gap-1">
-        <AlertTriangle className="w-3 h-3" /> Unverified
+        <AlertTriangle className="w-3 h-3" /> ⚠️ Flagged as Fake
       </span>
     );
   };

@@ -36,7 +36,7 @@ export default function SearchNews() {
     };
     if (score >= 25) return { 
       icon: AlertTriangle, 
-      label: 'MANUAL CHECK', 
+      label: 'NEEDS VERIFICATION', 
       color: 'yellow',
       bg: 'bg-yellow-500/20',
       text: 'text-yellow-400',
@@ -44,7 +44,7 @@ export default function SearchNews() {
     };
     return { 
       icon: XCircle, 
-      label: 'UNVERIFIED', 
+      label: '⚠️ FLAGGED AS FAKE', 
       color: 'red',
       bg: 'bg-red-500/20',
       text: 'text-red-400',

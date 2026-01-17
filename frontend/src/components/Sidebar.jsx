@@ -1,12 +1,14 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Search, AlertTriangle, BarChart3 } from 'lucide-react';
+import { Home, Search, AlertTriangle, BarChart3, Camera, Map } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const navItems = [
   { path: '/', icon: Home, label: 'Home' },
   { path: '/search', icon: Search, label: 'Search News' },
   { path: '/incidents', icon: AlertTriangle, label: 'Live Incidents' },
+  { path: '/map', icon: Map, label: 'Map View' },
+  { path: '/citizen-cam', icon: Camera, label: 'CitizenCam' },
   { path: '/analytics', icon: BarChart3, label: 'Analytics' },
 ];
 

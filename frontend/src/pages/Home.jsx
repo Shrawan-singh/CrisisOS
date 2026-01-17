@@ -64,7 +64,7 @@ export default function Home() {
     if (status === 'HIGH_POSSIBILITY' || confidence >= 40) {
       return <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full font-semibold">Manual Check</span>;
     }
-    return <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-full font-semibold">Unverified</span>;
+    return <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-full font-semibold">⚠️ Flagged as Fake</span>;
   };
 
   return (
@@ -102,8 +102,8 @@ export default function Home() {
             <>
               <div className="bg-[#0f1419] border border-white/10 rounded-2xl p-5">
                 <div className="flex justify-between items-start mb-3">
-                  <span className="text-white font-semibold">Earthquake</span>
-                  <span className="text-[#94a3b8] text-sm">in California</span>
+                  <span className="text-white font-semibold">Heavy Rainfall</span>
+                  <span className="text-[#94a3b8] text-sm">in Mumbai, Maharashtra</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-2xl font-bold text-white">92%</span>
@@ -112,8 +112,8 @@ export default function Home() {
               </div>
               <div className="bg-[#0f1419] border border-white/10 rounded-2xl p-5">
                 <div className="flex justify-between items-start mb-3">
-                  <span className="text-white font-semibold">Flood</span>
-                  <span className="text-[#94a3b8] text-sm">in Bangladesh</span>
+                  <span className="text-white font-semibold">Flood Warning</span>
+                  <span className="text-[#94a3b8] text-sm">in Kolhapur, Maharashtra</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-2xl font-bold text-white">76%</span>
@@ -122,12 +122,12 @@ export default function Home() {
               </div>
               <div className="bg-[#0f1419] border border-white/10 rounded-2xl p-5">
                 <div className="flex justify-between items-start mb-3">
-                  <span className="text-white font-semibold">Wildfire</span>
-                  <span className="text-[#94a3b8] text-sm">in Australia</span>
+                  <span className="text-white font-semibold">Landslide Alert</span>
+                  <span className="text-[#94a3b8] text-sm">in Raigad, Maharashtra</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl font-bold text-white">45%</span>
-                  <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-full font-semibold">Unverified</span>
+                  <span className="text-2xl font-bold text-white">18%</span>
+                  <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-full font-semibold">⚠️ Flagged as Fake</span>
                 </div>
               </div>
             </>
@@ -171,7 +171,7 @@ export default function Home() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-3 h-3 bg-red-500 rounded-full"></span>
-                  <span className="text-[#94a3b8] text-sm">{stats.unverified > 0 ? Math.round((stats.unverified / Math.max(stats.total, 1)) * 100) : 11}% Unverified</span>
+                  <span className="text-[#94a3b8] text-sm">{stats.unverified > 0 ? Math.round((stats.unverified / Math.max(stats.total, 1)) * 100) : 11}% Flagged as Fake</span>
                 </div>
               </div>
             </div>
