@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { AlertTriangle, CheckCircle, Clock, MapPin, TrendingUp } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, MapPin, TrendingUp, Phone, Shield } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 import { Link } from 'react-router-dom';
 
@@ -27,7 +27,8 @@ export default function Home() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch(`${API_BASE}/events`);
+      // Focus on Maharashtra incidents for Top 3
+      const res = await fetch(`${API_BASE}/events?location=${encodeURIComponent('Maharashtra')}`);
       const data = await res.json();
       
       const verified = data.filter(e => e.status === 'VERIFIED' || e.confidence_score >= 70).length;
@@ -216,6 +217,51 @@ export default function Home() {
             <h3 className="text-white font-bold text-lg mb-2">Analytics Dashboard</h3>
             <p className="text-purple-100/80 text-sm">Data visualization and trend analysis</p>
           </Link>
+        </motion.div>
+
+        {/* SOS Emergency Button */}
+        <motion.div variants={item} className="mt-8">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => {
+              if (confirm('This will call emergency services (112). Continue?')) {
+                window.location.href = 'tel:112';
+              }
+            }}
+            className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 rounded-2xl p-6 transition-all shadow-lg shadow-red-500/20 border-2 border-red-500/50"
+          >
+            <div className="flex items-center justify-center gap-4">
+              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
+                <Phone className="w-8 h-8 text-white" />
+              </div>
+              <div className="text-left">
+                <h3 className="text-white font-bold text-2xl">SOS EMERGENCY</h3>
+                <p className="text-red-100/90">Tap to call emergency services (112)</p>
+              </div>
+              <Shield className="w-10 h-10 text-white/80 ml-auto" />
+            </div>
+          </motion.button>
+          
+          {/* Emergency Numbers */}
+          <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <a href="tel:112" className="bg-[#0f1419] border border-red-500/30 rounded-xl p-4 text-center hover:bg-red-500/10 transition-all">
+              <p className="text-red-400 font-bold text-xl">112</p>
+              <p className="text-[#94a3b8] text-sm">Emergency</p>
+            </a>
+            <a href="tel:1078" className="bg-[#0f1419] border border-orange-500/30 rounded-xl p-4 text-center hover:bg-orange-500/10 transition-all">
+              <p className="text-orange-400 font-bold text-xl">1078</p>
+              <p className="text-[#94a3b8] text-sm">Disaster Helpline</p>
+            </a>
+            <a href="tel:101" className="bg-[#0f1419] border border-yellow-500/30 rounded-xl p-4 text-center hover:bg-yellow-500/10 transition-all">
+              <p className="text-yellow-400 font-bold text-xl">101</p>
+              <p className="text-[#94a3b8] text-sm">Fire</p>
+            </a>
+            <a href="tel:108" className="bg-[#0f1419] border border-green-500/30 rounded-xl p-4 text-center hover:bg-green-500/10 transition-all">
+              <p className="text-green-400 font-bold text-xl">108</p>
+              <p className="text-[#94a3b8] text-sm">Ambulance</p>
+            </a>
+          </div>
         </motion.div>
       </motion.div>
     </div>

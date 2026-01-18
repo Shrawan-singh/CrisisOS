@@ -743,6 +743,58 @@ def seed_sample_data(db: Session = Depends(get_db)):
     return {"message": f"Seeded {added} sample incidents", "total": len(sample_incidents)}
 
 
+# ============ NEWS SCRAPING ENDPOINTS ============
+
+from news_scraper import scrape_news_url, search_disaster_news, DISASTER_KEYWORDS
+
+@app.post("/api/scrape-news")
+async def scrape_news(url: str = Query(..., description="News URL to scrape")):
+    """
+    Scrape a news article from URL using BeautifulSoup.
+    Returns title, content, images, and disaster analysis.
+    """
+    logger.info(f"POST /api/scrape-news url={url}")
+    
+    try:
+        result = scrape_news_url(url)
+        return result
+    except Exception as e:
+        logger.error(f"Error scraping news: {e}")
+        return {"error": str(e), "url": url}
+
+
+@app.get("/api/search-disaster-news")
+async def search_news(
+    keywords: str = Query(None, description="Comma-separated keywords to search"),
+):
+    """
+    Search for disaster news using keywords.
+    Uses Google News RSS and BeautifulSoup.
+    """
+    logger.info(f"GET /api/search-disaster-news keywords={keywords}")
+    
+    keyword_list = None
+    if keywords:
+        keyword_list = [k.strip() for k in keywords.split(",")]
+    
+    try:
+        articles = search_disaster_news(keyword_list)
+        return {
+            "keywords": keyword_list or ["disaster", "earthquake", "flood", "cyclone", "India"],
+            "articles": articles,
+            "count": len(articles),
+        }
+    except Exception as e:
+        logger.error(f"Error searching news: {e}")
+        return {"error": str(e), "keywords": keyword_list}
+
+
+@app.get("/api/disaster-keywords")
+async def get_disaster_keywords():
+    """Get the list of disaster keywords used for detection."""
+    return {"keywords": DISASTER_KEYWORDS}
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "message": "CrisisOS 2.0 Backend is running"}

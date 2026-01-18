@@ -14,8 +14,8 @@ export default function App() {
     <Router>
       <div className="min-h-screen bg-[#0a0e14] text-white flex">
         <Sidebar />
-        {/* Main content with left margin for sidebar */}
-        <main className="flex-1 ml-20 lg:ml-64 min-h-screen">
+        {/* Main content - responsive margins for mobile/desktop */}
+        <main className="flex-1 ml-0 md:ml-20 lg:ml-64 min-h-screen pt-14 md:pt-0">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/search" element={<SearchNews />} />

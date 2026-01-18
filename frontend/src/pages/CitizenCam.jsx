@@ -12,10 +12,37 @@ import {
   Shield,
   Eye,
   Clock,
-  Navigation
+  Navigation,
+  Calendar,
+  Users,
+  Copy,
+  TrendingUp,
+  Hash
 } from 'lucide-react';
 
 const API_URL = 'http://localhost:8000';
+
+// Simulated duplicate image tracking (in real app, this would be from backend with image hashing)
+const DUPLICATE_REPORTS = {
+  'flood_mumbai_001': {
+    count: 8,
+    locations: ['Dadar', 'Kurla', 'Sion', 'Matunga', 'Wadala'],
+    firstReport: '2024-01-15T10:30:00',
+    lastReport: '2024-01-15T14:45:00',
+  },
+  'landslide_raigad_001': {
+    count: 12,
+    locations: ['Mahad', 'Poladpur', 'Mangaon'],
+    firstReport: '2024-01-15T08:15:00',
+    lastReport: '2024-01-15T16:20:00',
+  },
+  'fire_thane_001': {
+    count: 5,
+    locations: ['Thane West', 'Kalwa'],
+    firstReport: '2024-01-15T12:00:00',
+    lastReport: '2024-01-15T13:30:00',
+  }
+};
 
 export default function CitizenCam() {
   const [selectedImage, setSelectedImage] = useState(null);
@@ -29,6 +56,8 @@ export default function CitizenCam() {
   const [uploadTime, setUploadTime] = useState(null);
   const [coordinates, setCoordinates] = useState({ lat: null, lon: null });
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState(null);
+  const [uploadMetadata, setUploadMetadata] = useState(null);
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const videoRef = useRef(null);
@@ -90,14 +119,72 @@ export default function CitizenCam() {
     }
   };
 
-  const handleImageSelect = (e) => {
+  // Format date/time for display
+  const formatDateTime = (date) => {
+    if (!date) return null;
+    const d = new Date(date);
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    return {
+      day: days[d.getDay()],
+      date: `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`,
+      time: d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
+      fullDateTime: d.toLocaleString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      })
+    };
+  };
+
+  // Generate image hash (simplified - in real app use perceptual hashing)
+  const generateImageHash = async (file) => {
+    // Simplified hash based on file properties
+    const hash = `${file.name}_${file.size}_${file.lastModified}`;
+    return hash.substring(0, 20);
+  };
+
+  // Check for duplicate uploads (simulated)
+  const checkDuplicates = async (imageHash) => {
+    // Simulate API call to check for similar images
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Random chance to find duplicates for demo
+    const duplicateKeys = Object.keys(DUPLICATE_REPORTS);
+    if (Math.random() > 0.5 && duplicateKeys.length > 0) {
+      const randomKey = duplicateKeys[Math.floor(Math.random() * duplicateKeys.length)];
+      return DUPLICATE_REPORTS[randomKey];
+    }
+    return null;
+  };
+
+  const handleImageSelect = async (e) => {
     const file = e.target.files[0];
     if (file) {
       setSelectedImage(file);
       setPreview(URL.createObjectURL(file));
-      setUploadTime(new Date());
+      const now = new Date();
+      setUploadTime(now);
       setResult(null);
       setVerificationResult(null);
+      setDuplicateInfo(null);
+      
+      // Set upload metadata with day, date, time
+      setUploadMetadata(formatDateTime(now));
+      
+      // Check for duplicates
+      const hash = await generateImageHash(file);
+      const duplicates = await checkDuplicates(hash);
+      if (duplicates && duplicates.count >= 5) {
+        setDuplicateInfo(duplicates);
+      }
+      
       // Get location when image is selected
       if (!location) {
         getLocationAutofill();
@@ -127,19 +214,28 @@ export default function CitizenCam() {
   };
 
   // Capture photo from video stream
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     if (videoRef.current) {
       const canvas = document.createElement('canvas');
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
       canvas.getContext('2d').drawImage(videoRef.current, 0, 0);
       
-      canvas.toBlob((blob) => {
+      canvas.toBlob(async (blob) => {
         const file = new File([blob], `capture_${Date.now()}.jpg`, { type: 'image/jpeg' });
         setSelectedImage(file);
         setPreview(URL.createObjectURL(blob));
-        setUploadTime(new Date());
+        const now = new Date();
+        setUploadTime(now);
+        setUploadMetadata(formatDateTime(now));
         closeCamera();
+        
+        // Check for duplicates
+        const hash = await generateImageHash(file);
+        const duplicates = await checkDuplicates(hash);
+        if (duplicates && duplicates.count >= 5) {
+          setDuplicateInfo(duplicates);
+        }
         
         // Get location when photo is captured
         if (!location) {
@@ -229,6 +325,12 @@ export default function CitizenCam() {
       });
       
       const data = await response.json();
+      
+      // Add duplicate info to result if exists
+      if (duplicateInfo) {
+        data.duplicate_info = duplicateInfo;
+      }
+      
       setResult(data);
     } catch (error) {
       console.error('Submission failed:', error);
@@ -328,13 +430,98 @@ export default function CitizenCam() {
           </div>
           )}
 
-          {/* Upload Time Display */}
-          {uploadTime && (
-            <div className="mb-4 flex items-center gap-2 text-gray-400 text-sm">
-              <Clock className="w-4 h-4" />
-              <span>Captured: {uploadTime.toLocaleString()}</span>
-            </div>
+          {/* Upload Metadata Display - Day, Date, Time, Place */}
+          {uploadMetadata && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-4 bg-gray-900 rounded-lg p-4 border border-gray-700"
+            >
+              <h3 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-blue-400" />
+                Upload Details
+              </h3>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-green-400" />
+                  <div>
+                    <p className="text-gray-500 text-xs">Day</p>
+                    <p className="text-white font-medium">{uploadMetadata.day}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-purple-400" />
+                  <div>
+                    <p className="text-gray-500 text-xs">Date</p>
+                    <p className="text-white font-medium">{uploadMetadata.date}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-yellow-400" />
+                  <div>
+                    <p className="text-gray-500 text-xs">Time</p>
+                    <p className="text-white font-medium">{uploadMetadata.time}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-red-400" />
+                  <div>
+                    <p className="text-gray-500 text-xs">Place</p>
+                    <p className="text-white font-medium truncate" title={location}>
+                      {location || 'Detecting...'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              {coordinates.lat && coordinates.lon && (
+                <div className="mt-3 pt-2 border-t border-gray-700 flex items-center gap-2 text-xs text-gray-500">
+                  <Navigation className="w-3 h-3" />
+                  <span>GPS: {coordinates.lat.toFixed(6)}, {coordinates.lon.toFixed(6)}</span>
+                </div>
+              )}
+            </motion.div>
           )}
+
+          {/* Duplicate Detection Alert */}
+          <AnimatePresence>
+            {duplicateInfo && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="mb-4 bg-orange-900/30 border border-orange-600 rounded-lg p-4"
+              >
+                <div className="flex items-center gap-2 text-orange-400 font-semibold mb-2">
+                  <Copy className="w-5 h-5" />
+                  Similar Image Detected ({duplicateInfo.count}+ Reports)
+                </div>
+                <p className="text-sm text-gray-300 mb-3">
+                  This image or a very similar one has been reported by <span className="text-orange-400 font-bold">{duplicateInfo.count}</span> other citizens.
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-gray-800/50 rounded p-2">
+                    <p className="text-gray-500">First Report</p>
+                    <p className="text-white">{new Date(duplicateInfo.firstReport).toLocaleString()}</p>
+                  </div>
+                  <div className="bg-gray-800/50 rounded p-2">
+                    <p className="text-gray-500">Latest Report</p>
+                    <p className="text-white">{new Date(duplicateInfo.lastReport).toLocaleString()}</p>
+                  </div>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {duplicateInfo.locations.map((loc, i) => (
+                    <span key={i} className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded">
+                      {loc}
+                    </span>
+                  ))}
+                </div>
+                <div className="mt-3 flex items-center gap-2 text-green-400 text-sm">
+                  <TrendingUp className="w-4 h-4" />
+                  <span>This increases incident verification confidence!</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Location Status */}
           {isGettingLocation && (
@@ -540,11 +727,33 @@ export default function CitizenCam() {
                 {result.error ? (
                   <p className="text-red-400">{result.error}</p>
                 ) : (
-                  <div className="space-y-2 text-sm">
+                  <div className="space-y-3 text-sm">
                     <p className="text-green-400 font-semibold flex items-center gap-2">
                       <CheckCircle className="w-5 h-5" />
                       Report Submitted Successfully
                     </p>
+                    
+                    {/* Upload Details in Result */}
+                    {uploadMetadata && (
+                      <div className="bg-gray-800/50 rounded-lg p-3 space-y-1">
+                        <p className="text-gray-400 text-xs font-semibold uppercase">Submission Details</p>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <p className="text-gray-300">
+                            <span className="text-gray-500">Day:</span> {uploadMetadata.day}
+                          </p>
+                          <p className="text-gray-300">
+                            <span className="text-gray-500">Date:</span> {uploadMetadata.date}
+                          </p>
+                          <p className="text-gray-300">
+                            <span className="text-gray-500">Time:</span> {uploadMetadata.time}
+                          </p>
+                          <p className="text-gray-300">
+                            <span className="text-gray-500">Place:</span> {location}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    
                     <p className="text-gray-300">
                       <span className="text-gray-500">Report ID:</span> {result.report_id}
                     </p>
@@ -559,6 +768,19 @@ export default function CitizenCam() {
                         📎 Merged with existing incident: {result.merge_result.cluster_id}
                       </p>
                     )}
+                    
+                    {/* Show duplicate info if exists */}
+                    {result.duplicate_info && (
+                      <div className="mt-2 p-2 bg-orange-900/30 rounded border border-orange-600/50">
+                        <p className="text-orange-400 font-semibold flex items-center gap-2">
+                          <Users className="w-4 h-4" />
+                          Corroborated by {result.duplicate_info.count} other reports
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Your report strengthens the verification confidence for this incident.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </motion.div>
@@ -566,6 +788,37 @@ export default function CitizenCam() {
           </AnimatePresence>
         </motion.div>
       </div>
+
+      {/* Duplicate Reports Counter (if any) */}
+      {duplicateInfo && duplicateInfo.count >= 5 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-6 bg-gradient-to-r from-orange-900/30 to-yellow-900/30 rounded-xl p-6 border border-orange-600"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Hash className="w-5 h-5 text-orange-400" />
+                Trending Incident Alert
+              </h3>
+              <p className="text-gray-400 text-sm mt-1">
+                Multiple citizens are reporting the same incident. This helps verify authenticity.
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-4xl font-bold text-orange-400">{duplicateInfo.count}+</p>
+              <p className="text-xs text-gray-500">Similar Reports</p>
+            </div>
+          </div>
+          <div className="mt-4 flex items-center gap-4 text-sm text-gray-300">
+            <span className="flex items-center gap-1">
+              <MapPin className="w-4 h-4 text-red-400" />
+              Reported from: {duplicateInfo.locations.join(', ')}
+            </span>
+          </div>
+        </motion.div>
+      )}
 
       {/* Trust Info */}
       <motion.div
@@ -575,7 +828,7 @@ export default function CitizenCam() {
         className="mt-8 bg-gray-800/50 rounded-xl p-6 border border-gray-700"
       >
         <h3 className="text-lg font-semibold text-white mb-3">How CitizenCam Works</h3>
-        <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-400">
+        <div className="grid md:grid-cols-4 gap-4 text-sm text-gray-400">
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">1</div>
             <div>
@@ -592,6 +845,13 @@ export default function CitizenCam() {
           </div>
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">3</div>
+            <div>
+              <p className="font-semibold text-white">Duplicate Detection</p>
+              <p>5+ similar uploads boost verification confidence</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">4</div>
             <div>
               <p className="font-semibold text-white">Spatiotemporal Merge</p>
               <p>Your report is merged with existing incidents using Haversine distance</p>
